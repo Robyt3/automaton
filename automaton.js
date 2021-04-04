@@ -14,11 +14,12 @@
 		|| window.msCancelRequestAnimationFrame || window.msCancelAnimationFrame
 		|| function(id) { clearTimeout(id); };
 
-	var Settings = function(blockSize, numColors, borderWrap, initialPopulation) {
+	var Settings = function(blockSize, numColors, borderWrap, initialPopulation, neighbors) {
 		this.blockSize = blockSize;
 		this.numColors = numColors * 2 + 1;
 		this.borderWrap = borderWrap;
 		this.initialPopulation = initialPopulation;
+		this.neighbors = neighbors;
 	}
 
 	var settings;
@@ -172,28 +173,35 @@
 		return own < other ? 1 : -1;
 	}
 
-	function calculateNewColor(current, top, bottom, left, right) {
+	function calculateNewColor(current, top, bottom, left, right, topLeft, topRight, bottomLeft, bottomRight) {
 		var totalScore = 0;
 		var allScores = new Map();
-		[top, bottom, left, right]
-			.forEach(neighbor => {
-				var score = calculateBattleScore(current, neighbor);
-				totalScore += score;
-				allScores.set(neighbor, (allScores.get(neighbor) || 0) + score);
-			});
-		
+		var neighbors = [top, bottom, left, right];
+		if(settings.neighbors == "DC") {
+			neighbors = neighbors.concat([topLeft, topRight, bottomLeft, bottomRight]);
+		}
+		neighbors.forEach(neighbor => {
+			var score = calculateBattleScore(current, neighbor);
+			totalScore += score;
+			allScores.set(neighbor, (allScores.get(neighbor) || 0) + score);
+		});
 		if(totalScore >= 0) {
 			return current;
 		}
 		var maxKey = undefined;
+		var numWithMax = 0;
 		allScores.forEach((value, key) => {
-			if(key != -1) {
-				if(maxKey == undefined || calculateBattleScore(key, maxKey) > 0) {
+			if(key != -1 && calculateBattleScore(current, key) < 0) {
+				var score = calculateBattleScore(key, maxKey);
+				if(maxKey == undefined || score > 0) {
 					maxKey = key;
+					numWithMax = 1;
+				} else if(score == 0) {
+					numWithMax++;
 				}
 			}
 		});
-		if(maxKey != undefined) {
+		if(maxKey != undefined && numWithMax == 1) {
 			return maxKey;
 		}
 		return -1;
@@ -209,7 +217,11 @@
 					getCell(oldData, x, y - 1),
 					getCell(oldData, x, y + 1),
 					getCell(oldData, x - 1, y),
-					getCell(oldData, x + 1, y));
+					getCell(oldData, x + 1, y),
+					getCell(oldData, x - 1, y - 1),
+					getCell(oldData, x + 1, y - 1),
+					getCell(oldData, x - 1, y + 1),
+					getCell(oldData, x + 1, y + 1));
 				if(data[y][x] != oldColor) {
 					changedCells.push({ x : x, y : y });
 				}
@@ -255,8 +267,8 @@
 		animFrameReqId = requestAnimFrame(updateAndDrawFrame);
 	};
 
-	automaton.start = function(blockSize, numColors, borderWrap, initialPopulation, _running, _speed) {
-		settings = new Settings(blockSize, numColors, borderWrap, initialPopulation);
+	automaton.start = function(blockSize, numColors, borderWrap, initialPopulation, neighbors, _running, _speed) {
+		settings = new Settings(blockSize, numColors, borderWrap, initialPopulation, neighbors);
 		automaton.setSpeed(_speed);
 		automaton.setRunning(_running);
 
