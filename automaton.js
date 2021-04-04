@@ -147,15 +147,14 @@
 			// anything non-empty wins against empty
 			return 1;
 		}
-		// TODO: implement generically for any odd number of colors; this only works for 3 and 5 colors right now
-		const winners = {
-			0: [2, 4],
-			1: [0, 3],
-			2: [1, 4],
-			3: [0, 2],
-			4: [1, 3]
-		};
-		return winners[own].includes(other) ? 1 : -1;
+		// generalized rock-paper-scissors rules:
+		// if own and other have the same parity, the larger one wins
+		// if they have different parity, the smaller one wins
+		// https://math.stackexchange.com/a/3229687
+		if(own % 2 == other % 2) {
+			return own > other ? 1 : -1;
+		}
+		return own < other ? 1 : -1;
 	}
 
 	function calculateNewColor(current, top, bottom, left, right) {

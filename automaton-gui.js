@@ -31,7 +31,7 @@ var folderSettings = gui.addFolder('Settings');
 folderSettings.add(settings, 'blockSize').min(5).max(100).step(1).name('Block size');
 folderSettings.add(settings, 'initialPopulation').min(0).max(1.0).step(0.001).name('Initial Population');
 // TODO: Number of colors is weird because step size 2 does not work correctly with odd minimum value to enforce odd numbers
-folderSettings.add(settings, 'numColors').min(1).max(2).step(1).name('Number of colors (2 * N + 1)');
+folderSettings.add(settings, 'numColors').min(1).max(25).step(1).name('Number of colors (2 * N + 1)');
 folderSettings.add(settings, 'borderWrap').name('Borders wrap around');
 folderSettings.open();
 
