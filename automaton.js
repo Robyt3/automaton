@@ -46,6 +46,7 @@
 		canvas.addEventListener('mousedown', mouseHandler, false);
 		canvas.addEventListener('mousemove', mouseHandler, false);
 		canvas.addEventListener('mouseup', mouseHandler, false);
+		canvas.addEventListener('wheel', mouseHandler, false);
 
 		bufferCanvas = document.createElement("canvas");
 		bufferCanvas.width = canvas.width;
@@ -56,6 +57,7 @@
 	var mouseHandler = {
 		mouseDown : false,
 		mouseChangedCells : new Array(),
+		brushSize : 1,
 
 		handleEvent : function(event) {
 			if(event.type == 'mousedown' && event.buttons == 1) {
@@ -66,21 +68,34 @@
 			} else if(event.type == 'mouseup' && event.buttons == 0) {
 				mouseHandler.mouseDown = false;
 				mouseHandler.mouseChangedCells = new Array();
+			} else if(event.type == 'wheel' && event.deltaY != 0) {
+				mouseHandler.brushSize += event.deltaY > 0 ? -2 : 2;
+				if(mouseHandler.brushSize < 1) {
+					mouseHandler.brushSize = 1;
+				} else if(mouseHandler.brushSize > 101) {
+					mouseHandler.brushSize = 101;
+				}
 			}
 		},
 		handleCellClick : function(event) {
-			var x = Math.floor(event.pageX / settings.blockSize);
-			var y = Math.floor(event.pageY / settings.blockSize);
-			if(mouseHandler.mouseChangedCells.find(cell => cell.x == x && cell.y == y)) {
-				return;
+			var baseX = Math.floor(event.pageX / settings.blockSize);
+			var baseY = Math.floor(event.pageY / settings.blockSize);
+			for(var offsetY = -(mouseHandler.brushSize-1)/2; offsetY <= (mouseHandler.brushSize-1)/2; offsetY++) {
+				for(var offsetX = -(mouseHandler.brushSize-1)/2; offsetX <= (mouseHandler.brushSize-1)/2; offsetX++) {
+					var x = baseX + offsetX;
+					var y = baseY + offsetY;
+					if(x < 0 || y < 0 || x >= width || y >= height || mouseHandler.mouseChangedCells.find(cell => cell.x == x && cell.y == y)) {
+						continue;
+					}
+					if(event.ctrlKey) {
+						data[y][x] = -1;
+					} else {
+						data[y][x] = (data[y][x] + 1) % settings.numColors;
+					}
+					changedCells.push({ x : x, y : y });
+					mouseHandler.mouseChangedCells.push({ x : x, y : y });
+				}
 			}
-			if(event.ctrlKey) {
-				data[y][x] = -1;
-			} else {
-				data[y][x] = (data[y][x] + 1) % settings.numColors;
-			}
-			changedCells.push({ x : x, y : y });
-			mouseHandler.mouseChangedCells.push({ x : x, y : y });
 		}
 	}
 
@@ -228,7 +243,7 @@
 	}
 
 	function updateAndDrawFrame() {
-		if(running) {
+		if(running && !mouseHandler.mouseDown) {
 			timeUntilUpdate += speed;
 			while(timeUntilUpdate >= 1.0) {
 				performStepImpl();
