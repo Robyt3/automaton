@@ -4,7 +4,7 @@ var settings = {
 	blockSize : 10,
 	initialPopulation : 0.01,
 	numColors : 1,
-	borderWrap : true,
+	borders : "W",
 	neighbors : "D",
 	performStep : automaton.performStep,
 	restart : function() {
@@ -33,7 +33,7 @@ folderSettings.add(settings, 'blockSize').min(5).max(100).step(1).name('Block si
 folderSettings.add(settings, 'initialPopulation').min(0).max(1.0).step(0.001).name('Initial population');
 // TODO: Number of colors is weird because step size 2 does not work correctly with odd minimum value to enforce odd numbers
 folderSettings.add(settings, 'numColors').min(1).max(25).step(1).name('Number of colors (2 * N + 1)');
-folderSettings.add(settings, 'borderWrap').name('Borders wrap around');
+folderSettings.add(settings, 'borders', { "Wrap around": "W", "Empty": "E", "Undefined": "U" }).name('Borders');
 folderSettings.add(settings, 'neighbors', { "Direct": "D", "Direct and Corners": "DC"}).name('Neighbors');
 folderSettings.open();
 

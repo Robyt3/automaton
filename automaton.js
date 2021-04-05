@@ -17,14 +17,14 @@
 	var Settings = function(guiSettings) {
 		this.blockSize = guiSettings.blockSize;
 		this.numColors = guiSettings.numColors * 2 + 1;
-		this.borderWrap = guiSettings.borderWrap;
+		this.borders = { "W": null, "E": -1, "U": undefined }[guiSettings.borders];
 		this.initialPopulation = guiSettings.initialPopulation;
 		this.neighbors = guiSettings.neighbors;
 	}
 
 	var settings;
 	var speed;
-	var timeUntilUpdate = 0;
+	var timeUntilUpdate;
 	var running;
 	var changedCells;
 	var animFrameReqId;
@@ -124,31 +124,31 @@
 			return undefined;
 		}
 		if(x < 0) {
-			if(settings.borderWrap) {
+			if(settings.borders === null) {
 				x += width;
 			} else {
-				return -1;
+				return settings.borders;
 			}
 		}
 		if(x >= width) {
-			if(settings.borderWrap) {
+			if(settings.borders === null) {
 				x -= width;
 			} else {
-				return -1;
+				return settings.borders;
 			}
 		}
 		if(y < 0) {
-			if(settings.borderWrap) {
+			if(settings.borders === null) {
 				y += height;
 			} else {
-				return -1;
+				return settings.borders;
 			}
 		}
 		if(y >= height) {
-			if(settings.borderWrap) {
+			if(settings.borders === null) {
 				y -= height;
 			} else {
-				return -1;
+				return settings.borders;
 			}
 		}
 		return data[y][x];
@@ -272,6 +272,7 @@
 		settings = new Settings(guiSettings);
 		automaton.setSpeed(guiSettings.speed);
 		automaton.setRunning(guiSettings.running);
+		timeUntilUpdate = 0;
 
 		initCanvas();
 		initData();
