@@ -21,7 +21,7 @@ var folderGeneration = gui.addFolder('Generation');
 folderGeneration.add(settings, 'running').name('Running').listen().onChange(function() {
 	automaton.setRunning(settings.running);
 });
-folderGeneration.add(settings, 'speed').min(0.001).max(2).step(0.001).name('Speed').onChange(function() {
+folderGeneration.add(settings, 'speed').min(0.001).max(2).step(0.001).name('Speed').listen().onChange(function() {
 	automaton.setSpeed(settings.speed);
 });
 folderGeneration.add(settings, 'performStep').name('Perform single step');
@@ -44,5 +44,13 @@ $(document).keypress(event => {
 	if(event.key == " ") {
 		settings.running = !settings.running;
 		automaton.setRunning(settings.running);
+	} else if(event.key == "s") {
+		automaton.performStep();
+	} else if(event.key == "+") {
+		settings.speed = Math.min(settings.speed + (event.shiftKey ? 0.01 : 0.001), 2.0);
+		automaton.setSpeed(settings.speed);
+	} else if(event.key == "-") {
+		settings.speed = Math.max(settings.speed - (event.shiftKey ? 0.01 : 0.001), 0.001);
+		automaton.setSpeed(settings.speed);
 	}
 });

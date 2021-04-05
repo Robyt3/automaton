@@ -88,7 +88,7 @@
 					if(x < 0 || y < 0 || x >= width || y >= height || mouseHandler.mouseChangedCells.find(cell => cell.x == x && cell.y == y)) {
 						continue;
 					}
-					if(event.ctrlKey) {
+					if(event.shiftKey) {
 						data[y][x] = -1;
 					} else {
 						data[y][x] = (data[y][x] + 1) % settings.numColors;
