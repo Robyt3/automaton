@@ -14,12 +14,12 @@
 		|| window.msCancelRequestAnimationFrame || window.msCancelAnimationFrame
 		|| function(id) { clearTimeout(id); };
 
-	var Settings = function(blockSize, numColors, borderWrap, initialPopulation, neighbors) {
-		this.blockSize = blockSize;
-		this.numColors = numColors * 2 + 1;
-		this.borderWrap = borderWrap;
-		this.initialPopulation = initialPopulation;
-		this.neighbors = neighbors;
+	var Settings = function(guiSettings) {
+		this.blockSize = guiSettings.blockSize;
+		this.numColors = guiSettings.numColors * 2 + 1;
+		this.borderWrap = guiSettings.borderWrap;
+		this.initialPopulation = guiSettings.initialPopulation;
+		this.neighbors = guiSettings.neighbors;
 	}
 
 	var settings;
@@ -119,7 +119,10 @@
 		}
 	}
 
-	function getCell(data, x, y) {
+	function getNeighbor(type, data, x, y) {
+		if(settings.neighbors.indexOf(type) == -1) {
+			return undefined;
+		}
 		if(x < 0) {
 			if(settings.borderWrap) {
 				x += width;
@@ -151,48 +154,46 @@
 		return data[y][x];
 	}
 
-	function calculateBattleScore(own, other) {
-		if(own == other) {
-			return 0;
+	function calculateCell(current, top, bottom, left, right, topLeft, topRight, bottomLeft, bottomRight) {
+		function calculateIndividualScore(own, other) {
+			if(own == other) {
+				return 0;
+			}
+			if(own == -1) {
+				// empty loses against anything else
+				return -1;
+			}
+			if(other == -1) {
+				// anything non-empty wins against empty
+				return 1;
+			}
+			// generalized rock-paper-scissors rules:
+			// if own and other have the same parity, the larger one wins
+			// if they have different parity, the smaller one wins
+			// https://math.stackexchange.com/a/3229687
+			if(own % 2 == other % 2) {
+				return own > other ? 1 : -1;
+			}
+			return own < other ? 1 : -1;
 		}
-		if(own == -1) {
-			// empty loses against anything else
-			return -1;
-		}
-		if(other == -1) {
-			// anything non-empty wins against empty
-			return 1;
-		}
-		// generalized rock-paper-scissors rules:
-		// if own and other have the same parity, the larger one wins
-		// if they have different parity, the smaller one wins
-		// https://math.stackexchange.com/a/3229687
-		if(own % 2 == other % 2) {
-			return own > other ? 1 : -1;
-		}
-		return own < other ? 1 : -1;
-	}
 
-	function calculateNewColor(current, top, bottom, left, right, topLeft, topRight, bottomLeft, bottomRight) {
 		var totalScore = 0;
 		var allScores = new Map();
-		var neighbors = [top, bottom, left, right];
-		if(settings.neighbors == "DC") {
-			neighbors = neighbors.concat([topLeft, topRight, bottomLeft, bottomRight]);
-		}
-		neighbors.forEach(neighbor => {
-			var score = calculateBattleScore(current, neighbor);
-			totalScore += score;
-			allScores.set(neighbor, (allScores.get(neighbor) || 0) + score);
-		});
+		[top, bottom, left, right, topLeft, topRight, bottomLeft, bottomRight]
+			.filter(neighbor => neighbor != undefined)
+			.forEach(neighbor => {
+				var score = calculateIndividualScore(current, neighbor);
+				totalScore += score;
+				allScores.set(neighbor, (allScores.get(neighbor) || 0) + score);
+			});
 		if(totalScore >= 0) {
 			return current;
 		}
 		var maxKey = undefined;
 		var numWithMax = 0;
 		allScores.forEach((value, key) => {
-			if(key != -1 && calculateBattleScore(current, key) < 0) {
-				var score = calculateBattleScore(key, maxKey);
+			if(key != -1 && calculateIndividualScore(current, key) < 0) {
+				var score = calculateIndividualScore(key, maxKey);
 				if(maxKey == undefined || score > 0) {
 					maxKey = key;
 					numWithMax = 1;
@@ -207,21 +208,21 @@
 		return -1;
 	}
 
-	function performStepImpl() {
+	automaton.performStep = function() {
 		var oldData = data.map(arr => arr.slice());
 		for(var y = 0; y < height; y++) {
 			for(var x = 0; x < width; x++) {
 				var oldColor = data[y][x];
-				data[y][x] = calculateNewColor(
-					getCell(oldData, x, y),
-					getCell(oldData, x, y - 1),
-					getCell(oldData, x, y + 1),
-					getCell(oldData, x - 1, y),
-					getCell(oldData, x + 1, y),
-					getCell(oldData, x - 1, y - 1),
-					getCell(oldData, x + 1, y - 1),
-					getCell(oldData, x - 1, y + 1),
-					getCell(oldData, x + 1, y + 1));
+				data[y][x] = calculateCell(
+					oldData[y][x],
+					getNeighbor("D", oldData, x, y - 1),
+					getNeighbor("D", oldData, x, y + 1),
+					getNeighbor("D", oldData, x - 1, y),
+					getNeighbor("D", oldData, x + 1, y),
+					getNeighbor("C", oldData, x - 1, y - 1),
+					getNeighbor("C", oldData, x + 1, y - 1),
+					getNeighbor("C", oldData, x - 1, y + 1),
+					getNeighbor("C", oldData, x + 1, y + 1));
 				if(data[y][x] != oldColor) {
 					changedCells.push({ x : x, y : y });
 				}
@@ -258,7 +259,7 @@
 		if(running && !mouseHandler.mouseDown) {
 			timeUntilUpdate += speed;
 			while(timeUntilUpdate >= 1.0) {
-				performStepImpl();
+				automaton.performStep();
 				timeUntilUpdate -= 1.0;
 			}
 		}
@@ -267,10 +268,10 @@
 		animFrameReqId = requestAnimFrame(updateAndDrawFrame);
 	};
 
-	automaton.start = function(blockSize, numColors, borderWrap, initialPopulation, neighbors, _running, _speed) {
-		settings = new Settings(blockSize, numColors, borderWrap, initialPopulation, neighbors);
-		automaton.setSpeed(_speed);
-		automaton.setRunning(_running);
+	automaton.start = function(guiSettings) {
+		settings = new Settings(guiSettings);
+		automaton.setSpeed(guiSettings.speed);
+		automaton.setRunning(guiSettings.running);
 
 		initCanvas();
 		initData();
@@ -279,15 +280,6 @@
 			cancelAnimFrame(animFrameReqId);
 		}
 		animFrameReqId = requestAnimFrame(updateAndDrawFrame);
-	}
-
-	automaton.performStep = function() {
-		if(running) {
-			return;
-		}
-		performStepImpl();
-		redrawChangedCells();
-		drawBuffer();
 	}
 
 	automaton.setSpeed = function(_speed) {

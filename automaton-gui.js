@@ -8,7 +8,7 @@ var settings = {
 	neighbors : "D",
 	performStep : automaton.performStep,
 	restart : function() {
-		automaton.start(settings.blockSize, settings.numColors, settings.borderWrap, settings.initialPopulation, settings.neighbors, settings.running, settings.speed);
+		automaton.start(settings);
 	},
 	viewSource : function() {
 		window.location.href = "https://github.com/Robyt3/automaton";
