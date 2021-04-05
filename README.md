@@ -10,9 +10,11 @@ Enable fullscreen (F11) then reload the page (F5) to cover entire screen.
 
 ### Controls
 
-- Click: draw cells
-- Shift + Click: erase cells
+- Click: Draw cells
+- Shift + Click: Erase cells
 - Mouse wheel: Adjust size for drawing/erasing
 - Space: Pause/Unpause
-- S: Single step forward (only when paused)
+- S: Single step forward
+- R: Restart generation
 - +/-: Increase/Decrease speed (hold shift to change faster)
+- H: Hide controls completely

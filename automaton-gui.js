@@ -46,6 +46,8 @@ $(document).keypress(event => {
 		automaton.setRunning(settings.running);
 	} else if(event.key == "s") {
 		automaton.performStep();
+	} else if(event.key == "r") {
+		settings.restart();
 	} else if(event.key == "+") {
 		settings.speed = Math.min(settings.speed + (event.shiftKey ? 0.01 : 0.001), 2.0);
 		automaton.setSpeed(settings.speed);
