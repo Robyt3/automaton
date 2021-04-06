@@ -20,6 +20,7 @@
 		this.borders = { "W": null, "E": -1, "U": undefined }[guiSettings.borders];
 		this.initialPopulation = guiSettings.initialPopulation;
 		this.neighbors = guiSettings.neighbors;
+		this.initialCellLife = guiSettings.initialCellLife;
 	}
 
 	var settings;
@@ -28,6 +29,11 @@
 	var running;
 	var changedCells;
 	var animFrameReqId;
+
+	var Cell = function(colorId, life) {
+		this.colorId = colorId;
+		this.life = life == undefined ? settings.initialCellLife : life;
+	}
 
 	var data;
 	var width;
@@ -89,9 +95,9 @@
 						continue;
 					}
 					if(event.shiftKey) {
-						data[y][x] = -1;
+						data[y][x] = new Cell(-1);
 					} else {
-						data[y][x] = (data[y][x] + 1) % settings.numColors;
+						data[y][x] = new Cell((data[y][x].colorId + 1) % settings.numColors);
 					}
 					changedCells.push({ x : x, y : y });
 					mouseHandler.mouseChangedCells.push({ x : x, y : y });
@@ -110,9 +116,9 @@
 			data[y] = new Array(width);
 			for(var x = 0; x < width; x++) {
 				if(Math.random() < settings.initialPopulation) {
-					data[y][x] = Math.floor(Math.random() * settings.numColors);
+					data[y][x] = new Cell(Math.floor(Math.random() * settings.numColors));
 				} else {
-					data[y][x] = -1;
+					data[y][x] = new Cell(-1);
 				}
 				changedCells.push({ x : x, y : y });
 			}
@@ -151,7 +157,7 @@
 				return settings.borders;
 			}
 		}
-		return data[y][x];
+		return data[y][x].colorId;
 	}
 
 	function calculateCell(current, top, bottom, left, right, topLeft, topRight, bottomLeft, bottomRight) {
@@ -182,7 +188,7 @@
 		[top, bottom, left, right, topLeft, topRight, bottomLeft, bottomRight]
 			.filter(neighbor => neighbor != undefined)
 			.forEach(neighbor => {
-				var score = calculateIndividualScore(current, neighbor);
+				var score = calculateIndividualScore(current.colorId, neighbor);
 				totalScore += score;
 				allScores.set(neighbor, (allScores.get(neighbor) || 0) + score);
 			});
@@ -192,7 +198,7 @@
 		var maxKey = undefined;
 		var numWithMax = 0;
 		allScores.forEach((value, key) => {
-			if(key != -1 && calculateIndividualScore(current, key) < 0) {
+			if(key != -1 && calculateIndividualScore(current.colorId, key) < 0) {
 				var score = calculateIndividualScore(key, maxKey);
 				if(maxKey == undefined || score > 0) {
 					maxKey = key;
@@ -203,16 +209,20 @@
 			}
 		});
 		if(maxKey != undefined && numWithMax == 1) {
-			return maxKey;
+			current.life += allScores.get(maxKey); // the score is negative
+			if(current.life <= 0) {
+				return new Cell(maxKey);
+			} else {
+				return current;
+			}
 		}
-		return -1;
+		return new Cell(-1);
 	}
 
 	automaton.performStep = function() {
-		var oldData = data.map(arr => arr.slice());
+		var oldData = data.map(arr => arr.map(cell => new Cell(cell.colorId, cell.life)));
 		for(var y = 0; y < height; y++) {
 			for(var x = 0; x < width; x++) {
-				var oldColor = data[y][x];
 				data[y][x] = calculateCell(
 					oldData[y][x],
 					getNeighbor("D", oldData, x, y - 1),
@@ -223,23 +233,23 @@
 					getNeighbor("C", oldData, x + 1, y - 1),
 					getNeighbor("C", oldData, x - 1, y + 1),
 					getNeighbor("C", oldData, x + 1, y + 1));
-				if(data[y][x] != oldColor) {
+				if(data[y][x].colorId != oldData[y][x].colorId) {
 					changedCells.push({ x : x, y : y });
 				}
 			}
 		}
 	}
 
-	function selectColor(value) {
-		if(value < 0) {
+	function selectColor(colorId) {
+		if(colorId < 0) {
 			return "black";
 		}
-		return "hsl(" + (value * 137.508) + ", 100%, 50%)"; // golden angle approximation
+		return "hsl(" + (colorId * 137.508) + ", 100%, 50%)"; // golden angle approximation
 	}
 
 	function redrawChangedCells() {
 		changedCells.forEach(cell => {
-			bufferContext.fillStyle = selectColor(data[cell.y][cell.x]);
+			bufferContext.fillStyle = selectColor(data[cell.y][cell.x].colorId);
 			bufferContext.fillRect(
 				cell.x * settings.blockSize,
 				cell.y * settings.blockSize,

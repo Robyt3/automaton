@@ -6,6 +6,7 @@ var settings = {
 	numColors : 1,
 	borders : "W",
 	neighbors : "D",
+	initialCellLife : 1,
 	performStep : automaton.performStep,
 	restart : function() {
 		automaton.start(settings);
@@ -31,6 +32,7 @@ folderGeneration.open();
 var folderSettings = gui.addFolder('Settings');
 folderSettings.add(settings, 'blockSize').min(5).max(100).step(1).name('Block size');
 folderSettings.add(settings, 'initialPopulation').min(0).max(1.0).step(0.001).name('Initial population');
+folderSettings.add(settings, 'initialCellLife').min(0).max(50).step(1).name('Initial cell life');
 // TODO: Number of colors is weird because step size 2 does not work correctly with odd minimum value to enforce odd numbers
 folderSettings.add(settings, 'numColors').min(1).max(25).step(1).name('Number of colors (2 * N + 1)');
 folderSettings.add(settings, 'borders', { "Wrap around": "W", "Empty": "E", "Undefined": "U" }).name('Borders');
