@@ -15,20 +15,26 @@
 		|| function(id) { clearTimeout(id); };
 
 	var Settings = function(guiSettings) {
-		this.blockSize = guiSettings.blockSize;
+		this.blockSize = Math.floor(guiSettings.blockSize);
 		this.numColors = guiSettings.numColors * 2 + 1;
 		this.borders = { "W": null, "E": -1, "U": undefined }[guiSettings.borders];
 		this.initialPopulation = guiSettings.initialPopulation;
 		this.neighbors = guiSettings.neighbors;
-		this.initialCellLife = guiSettings.initialCellLife;
+		this.initialCellLife = Math.floor(guiSettings.initialCellLife);
 	}
 
 	var settings;
+	var running;
 	var speed;
 	var timeUntilUpdate;
-	var running;
-	var changedCells;
 	var animFrameReqId;
+
+	var changedCells = new Map();
+	changedCells.addCell = function(x, y, colorId) {
+		var positions = changedCells.get(colorId) || [];
+		positions.push({ x : x, y : y });
+		changedCells.set(colorId, positions);
+	}
 
 	var Cell = function(colorId, life) {
 		this.colorId = colorId;
@@ -46,19 +52,27 @@
 
 	function initCanvas() {
 		canvas = document.getElementById("canvas");
-		canvas.mozOpaque = true;
-		canvas.width = window.innerWidth;
-		canvas.height = window.innerHeight;
-		context = canvas.getContext("2d");
+		bufferCanvas = document.createElement("canvas");
+
+		[canvas, bufferCanvas].forEach(can => {
+			can.mozOpaque = true;
+			can.width = window.innerWidth;
+			can.height = window.innerHeight;
+		});
+
 		canvas.addEventListener('mousedown', mouseHandler, false);
 		canvas.addEventListener('mousemove', mouseHandler, false);
 		canvas.addEventListener('mouseup', mouseHandler, false);
 		canvas.addEventListener('wheel', mouseHandler, false);
 
-		bufferCanvas = document.createElement("canvas");
-		bufferCanvas.width = canvas.width;
-		bufferCanvas.height = canvas.height;
-		bufferContext = bufferCanvas.getContext("2d");
+		context = canvas.getContext("2d", { alpha: false });
+		bufferContext = bufferCanvas.getContext("2d", { alpha: false });
+
+		[context, bufferContext].forEach(ctx => {
+			ctx.webkitImageSmoothingEnabled = false;
+			ctx.mozImageSmoothingEnabled = false;
+			ctx.imageSmoothingEnabled = false;
+		});
 	}
 
 	var mouseHandler = {
@@ -99,7 +113,7 @@
 					} else {
 						data[y][x] = new Cell((data[y][x].colorId + 1) % settings.numColors);
 					}
-					changedCells.push({ x : x, y : y });
+					changedCells.addCell(x, y, data[y][x].colorId);
 					mouseHandler.mouseChangedCells.push({ x : x, y : y });
 				}
 			}
@@ -111,7 +125,7 @@
 		height = Math.floor(canvas.height / settings.blockSize);
 
 		data = new Array(height);
-		changedCells = new Array();
+		changedCells.clear();
 		for(var y = 0; y < height; y++) {
 			data[y] = new Array(width);
 			for(var x = 0; x < width; x++) {
@@ -120,7 +134,7 @@
 				} else {
 					data[y][x] = new Cell(-1);
 				}
-				changedCells.push({ x : x, y : y });
+				changedCells.addCell(x, y, data[y][x].colorId);
 			}
 		}
 	}
@@ -234,7 +248,7 @@
 					getNeighbor("C", oldData, x - 1, y + 1),
 					getNeighbor("C", oldData, x + 1, y + 1));
 				if(data[y][x].colorId != oldData[y][x].colorId) {
-					changedCells.push({ x : x, y : y });
+					changedCells.addCell(x, y, data[y][x].colorId);
 				}
 			}
 		}
@@ -248,15 +262,17 @@
 	}
 
 	function redrawChangedCells() {
-		changedCells.forEach(cell => {
-			bufferContext.fillStyle = selectColor(data[cell.y][cell.x].colorId);
-			bufferContext.fillRect(
-				cell.x * settings.blockSize,
-				cell.y * settings.blockSize,
-				settings.blockSize,
-				settings.blockSize);
+		changedCells.forEach((cells, colorId) => {
+			bufferContext.fillStyle = selectColor(colorId);
+			cells.forEach(cell =>
+				bufferContext.fillRect(
+					cell.x * settings.blockSize,
+					cell.y * settings.blockSize,
+					settings.blockSize,
+					settings.blockSize)
+			);
 		});
-		changedCells = new Array();
+		changedCells.clear();
 	}
 
 	function drawBuffer() {
