@@ -1,16 +1,16 @@
 var settings = {
 	running : true,
 	speed : 1,
-	blockSize : 10,
-	initialPopulation : 0.01,
-	numColors : 1,
-	borders : "W",
-	neighbors : "D",
-	initialCellLife : 1,
 	performStep : automaton.performStep,
 	restart : function() {
 		automaton.start(settings);
 	},
+	blockSize : 10,
+	initialPopulation : 0.01,
+	initialCellLife : 1,
+	numColors : 1,
+	borders : "W",
+	neighbors : "D",
 	viewSource : function() {
 		window.location.href = "https://github.com/Robyt3/automaton";
 	}
@@ -19,12 +19,8 @@ var settings = {
 var gui = new dat.gui.GUI({ width: 400 });
 
 var folderGeneration = gui.addFolder('Generation');
-folderGeneration.add(settings, 'running').name('Running [Space]').listen().onChange(function() {
-	automaton.setRunning(settings.running);
-});
-folderGeneration.add(settings, 'speed').min(0.001).max(2).step(0.001).name('Speed [+/-]').listen().onChange(function() {
-	automaton.setSpeed(settings.speed);
-});
+folderGeneration.add(settings, 'running').name('Running [Space]').listen().onChange(() => automaton.setRunning(settings.running));
+folderGeneration.add(settings, 'speed').min(0.001).max(2).step(0.001).name('Speed [+/-]').listen().onChange(() => automaton.setSpeed(settings.speed));
 folderGeneration.add(settings, 'performStep').name('Perform single step [S]');
 folderGeneration.add(settings, 'restart').name('Start/Restart generation [R]');
 folderGeneration.open();

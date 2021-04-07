@@ -7,20 +7,21 @@
 		|| window.mozRequestAnimationFrame
 		|| function(callback) { return window.setTimeout(callback, 1000 / 60); };
 	var cancelAnimFrame = window.cancelAnimationFrame
-		|| window.webkitCancelRequestAnimationFrame
-		|| window.webkitCancelAnimationFrame
+		|| window.webkitCancelRequestAnimationFrame || window.webkitCancelAnimationFrame
+		|| window.msCancelRequestAnimationFrame || window.msCancelAnimationFrame
 		|| window.mozCancelRequestAnimationFrame || window.mozCancelAnimationFrame
 		|| window.oCancelRequestAnimationFrame || window.oCancelAnimationFrame
-		|| window.msCancelRequestAnimationFrame || window.msCancelAnimationFrame
 		|| function(id) { clearTimeout(id); };
 
-	var Settings = function(guiSettings) {
-		this.blockSize = Math.floor(guiSettings.blockSize);
-		this.numColors = guiSettings.numColors * 2 + 1;
-		this.borders = { "W": null, "E": -1, "U": undefined }[guiSettings.borders];
-		this.initialPopulation = guiSettings.initialPopulation;
-		this.neighbors = guiSettings.neighbors;
-		this.initialCellLife = Math.floor(guiSettings.initialCellLife);
+	class Settings {
+		constructor(guiSettings) {
+			this.blockSize = Math.floor(guiSettings.blockSize);
+			this.numColors = guiSettings.numColors * 2 + 1;
+			this.borders = { "W": null, "E": -1, "U": undefined }[guiSettings.borders];
+			this.initialPopulation = guiSettings.initialPopulation;
+			this.neighbors = guiSettings.neighbors;
+			this.initialCellLife = Math.floor(guiSettings.initialCellLife);
+		}
 	}
 
 	var settings;
@@ -28,6 +29,7 @@
 	var speed;
 	var timeUntilUpdate;
 	var animFrameReqId;
+	var lastFrameTime;
 
 	var changedCells = new Map();
 	changedCells.addCell = function(x, y, colorId) {
@@ -36,12 +38,22 @@
 		changedCells.set(colorId, positions);
 	}
 
-	var Cell = function(colorId, life) {
-		this.colorId = colorId;
-		this.life = life == undefined ? settings.initialCellLife : life;
+	class Cell {
+		set(colorId, life) {
+			this.colorId = colorId;
+			this.life = life == undefined ? settings.initialCellLife : life;
+		}
+		copy(cell) {
+			this.colorId = cell.colorId;
+			this.life = cell.life;
+		}
+		constructor(colorId, life) {
+			this.set(colorId, life);
+		}
 	}
 
 	var data;
+	var oldData;
 	var width;
 	var height;
 
@@ -109,9 +121,9 @@
 						continue;
 					}
 					if(event.shiftKey) {
-						data[y][x] = new Cell(-1);
+						data[y][x].set(-1);
 					} else {
-						data[y][x] = new Cell((data[y][x].colorId + 1) % settings.numColors);
+						data[y][x].set((data[y][x].colorId + 1) % settings.numColors);
 					}
 					changedCells.addCell(x, y, data[y][x].colorId);
 					mouseHandler.mouseChangedCells.push({ x : x, y : y });
@@ -123,17 +135,19 @@
 	function initData() {
 		width = Math.floor(canvas.width / settings.blockSize);
 		height = Math.floor(canvas.height / settings.blockSize);
-
 		data = new Array(height);
+		oldData = new Array(height);
 		changedCells.clear();
 		for(var y = 0; y < height; y++) {
 			data[y] = new Array(width);
+			oldData[y] = new Array(width);
 			for(var x = 0; x < width; x++) {
 				if(Math.random() < settings.initialPopulation) {
 					data[y][x] = new Cell(Math.floor(Math.random() * settings.numColors));
 				} else {
 					data[y][x] = new Cell(-1);
 				}
+				oldData[y][x] = new Cell(-1);
 				changedCells.addCell(x, y, data[y][x].colorId);
 			}
 		}
@@ -234,10 +248,14 @@
 	}
 
 	automaton.performStep = function() {
-		var oldData = data.map(arr => arr.map(cell => new Cell(cell.colorId, cell.life)));
 		for(var y = 0; y < height; y++) {
 			for(var x = 0; x < width; x++) {
-				data[y][x] = calculateCell(
+				oldData[y][x].copy(data[y][x]);
+			}
+		}
+		for(var y = 0; y < height; y++) {
+			for(var x = 0; x < width; x++) {
+				data[y][x].copy(calculateCell(
 					oldData[y][x],
 					getNeighbor("D", oldData, x, y - 1),
 					getNeighbor("D", oldData, x, y + 1),
@@ -246,7 +264,7 @@
 					getNeighbor("C", oldData, x - 1, y - 1),
 					getNeighbor("C", oldData, x + 1, y - 1),
 					getNeighbor("C", oldData, x - 1, y + 1),
-					getNeighbor("C", oldData, x + 1, y + 1));
+					getNeighbor("C", oldData, x + 1, y + 1)));
 				if(data[y][x].colorId != oldData[y][x].colorId) {
 					changedCells.addCell(x, y, data[y][x].colorId);
 				}
@@ -262,14 +280,15 @@
 	}
 
 	function redrawChangedCells() {
+		const blockSize = settings.blockSize;
 		changedCells.forEach((cells, colorId) => {
 			bufferContext.fillStyle = selectColor(colorId);
 			cells.forEach(cell =>
 				bufferContext.fillRect(
-					cell.x * settings.blockSize,
-					cell.y * settings.blockSize,
-					settings.blockSize,
-					settings.blockSize)
+					cell.x * blockSize,
+					cell.y * blockSize,
+					blockSize,
+					blockSize)
 			);
 		});
 		changedCells.clear();
@@ -281,13 +300,18 @@
 		context.drawImage(bufferCanvas, 0, 0);
 	}
 
-	function updateAndDrawFrame() {
+	function updateAndDrawFrame(timestamp) {
 		if(running && !mouseHandler.mouseDown) {
-			timeUntilUpdate += speed;
+			if(lastFrameTime === undefined) {
+				lastFrameTime = timestamp;
+			}
+			const baseFPS = 30.0;
+			timeUntilUpdate += Math.min(Math.max(timestamp - lastFrameTime, 0.0), 1000/baseFPS) / (1000/baseFPS) * speed;
 			while(timeUntilUpdate >= 1.0) {
 				automaton.performStep();
 				timeUntilUpdate -= 1.0;
 			}
+			lastFrameTime = timestamp;
 		}
 		redrawChangedCells();
 		drawBuffer();
@@ -310,13 +334,7 @@
 	}
 
 	automaton.setSpeed = function(_speed) {
-		if(_speed < 0.001) {
-			speed = 0.001;
-		} else if(_speed > 2) {
-			speed = 2;
-		} else {
-			speed = _speed;
-		}
+		speed = Math.min(Math.max(_speed, 0.001), 2.0);
 	}
 
 	automaton.setRunning = function(_running) {
