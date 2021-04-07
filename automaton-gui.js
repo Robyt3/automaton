@@ -19,14 +19,14 @@ var settings = {
 var gui = new dat.gui.GUI({ width: 400 });
 
 var folderGeneration = gui.addFolder('Generation');
-folderGeneration.add(settings, 'running').name('Running').listen().onChange(function() {
+folderGeneration.add(settings, 'running').name('Running [Space]').listen().onChange(function() {
 	automaton.setRunning(settings.running);
 });
-folderGeneration.add(settings, 'speed').min(0.001).max(2).step(0.001).name('Speed').listen().onChange(function() {
+folderGeneration.add(settings, 'speed').min(0.001).max(2).step(0.001).name('Speed [+/-]').listen().onChange(function() {
 	automaton.setSpeed(settings.speed);
 });
-folderGeneration.add(settings, 'performStep').name('Perform single step');
-folderGeneration.add(settings, 'restart').name('Start/Restart generation');
+folderGeneration.add(settings, 'performStep').name('Perform single step [S]');
+folderGeneration.add(settings, 'restart').name('Start/Restart generation [R]');
 folderGeneration.open();
 
 var folderSettings = gui.addFolder('Settings');
