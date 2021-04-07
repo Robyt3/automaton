@@ -1,4 +1,4 @@
-(function(automaton, $, undefined) {
+(function(automaton, undefined) {
 
 	// cross-browser support for requestAnimationFrame and cancelAnimationFrame
 	var requestAnimFrame = window.requestAnimationFrame
@@ -326,4 +326,4 @@
 	automaton.isRunning = function() {
 		return running;
 	}
-}(window.automaton = window.automaton || {}, jQuery));
+}(window.automaton = window.automaton || {}));

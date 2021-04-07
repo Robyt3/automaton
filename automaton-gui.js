@@ -41,8 +41,7 @@ folderSettings.open();
 
 gui.add(settings, 'viewSource').name('Show source code on GitHub');
 
-$(document).ready(settings.restart);
-$(document).keypress(event => {
+document.addEventListener('keypress', event => {
 	if(event.key == " ") {
 		settings.running = !settings.running;
 		automaton.setRunning(settings.running);
@@ -57,4 +56,6 @@ $(document).keypress(event => {
 		settings.speed = Math.max(settings.speed - (event.shiftKey ? 0.01 : 0.001), 0.001);
 		automaton.setSpeed(settings.speed);
 	}
-});
+}, false);
+
+settings.restart();
