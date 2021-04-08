@@ -1,12 +1,12 @@
-# Rock-Paper-Scissors Automaton
+# Rock-Paper-Scissors cellular automaton
 
-Rock-Paper-Scissors automaton using JavaScript and HTML5 canvas.
+Rock-Paper-Scissors cellular automaton using JavaScript and HTML5 canvas.
 
 ## [Live Demo](https://robyt3.github.io/automaton/)
 
 Generation must be restarted to apply settings.
 
-Enable fullscreen (F11) then reload the page (F5) to cover entire screen.
+Enable fullscreen (F11) then restart the generation to cover the entire screen.
 
 ### Controls
 
