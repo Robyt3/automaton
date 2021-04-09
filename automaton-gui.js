@@ -37,21 +37,23 @@ folderSettings.open();
 
 gui.add(settings, "viewSource").name("Show source code on GitHub");
 
-document.addEventListener("keypress", event => {
+const canvas = document.getElementById("canvas");
+canvas.addEventListener("keypress", event => {
 	if(event.key == " ") {
 		settings.running = !settings.running;
-		automaton.setRunning(settings.running);
+		automaton.applySettings(settings);
 	} else if(event.key == "s") {
 		automaton.performStep();
 	} else if(event.key == "r") {
 		settings.restart();
 	} else if(event.key == "+") {
 		settings.speed = Math.min(settings.speed + (event.shiftKey ? 0.01 : 0.001), 2.0);
-		automaton.setSpeed(settings.speed);
+		automaton.applySettings(settings);
 	} else if(event.key == "-") {
 		settings.speed = Math.max(settings.speed - (event.shiftKey ? 0.01 : 0.001), 0.001);
-		automaton.setSpeed(settings.speed);
+		automaton.applySettings(settings);
 	}
 }, false);
+canvas.focus();
 
 settings.restart();
