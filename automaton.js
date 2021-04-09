@@ -80,10 +80,10 @@
 			can.height = window.innerHeight;
 		});
 
-		canvas.addEventListener('mousedown', mouseHandler, false);
-		canvas.addEventListener('mousemove', mouseHandler, false);
-		canvas.addEventListener('mouseup', mouseHandler, false);
-		canvas.addEventListener('wheel', mouseHandler, false);
+		canvas.addEventListener("mousedown", mouseHandler, false);
+		canvas.addEventListener("mousemove", mouseHandler, false);
+		canvas.addEventListener("mouseup", mouseHandler, false);
+		canvas.addEventListener("wheel", mouseHandler, false);
 
 		context = canvas.getContext("2d", { alpha: false });
 		bufferContext = bufferCanvas.getContext("2d", { alpha: false });
@@ -101,15 +101,15 @@
 		brushSize : 1,
 
 		handleEvent : function(event) {
-			if(event.type == 'mousedown' && event.buttons == 1) {
+			if(event.type == "mousedown" && event.buttons == 1) {
 				mouseHandler.handleCellClick(event);
 				mouseHandler.mouseDown = true;
-			} else if(event.type == 'mousemove' && mouseHandler.mouseDown) {
+			} else if(event.type == "mousemove" && mouseHandler.mouseDown) {
 				mouseHandler.handleCellClick(event);
-			} else if(event.type == 'mouseup' && event.buttons == 0) {
+			} else if(event.type == "mouseup" && event.buttons == 0) {
 				mouseHandler.mouseDown = false;
 				mouseHandler.mouseChangedCells = new Array();
-			} else if(event.type == 'wheel' && event.deltaY != 0) {
+			} else if(event.type == "wheel" && event.deltaY != 0) {
 				mouseHandler.brushSize += event.deltaY > 0 ? -2 : 2;
 				if(mouseHandler.brushSize < 1) {
 					mouseHandler.brushSize = 1;
