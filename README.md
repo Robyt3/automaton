@@ -4,7 +4,7 @@ Rock-Paper-Scissors cellular automaton using JavaScript and HTML5 canvas.
 
 ## [Live Demo](https://robyt3.github.io/automaton/)
 
-Generation must be restarted to apply settings.
+Generation must be restarted to apply settings marked with *.
 
 Enable fullscreen (F11) then restart the generation to cover the entire screen.
 

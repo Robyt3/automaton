@@ -13,20 +13,28 @@
 		|| window.oCancelRequestAnimationFrame || window.oCancelAnimationFrame
 		|| function(id) { clearTimeout(id); };
 
+	const NeighborType = {
+		DIRECT : 0,
+		CORNER : 1
+	}
+
 	class Settings {
 		constructor(guiSettings) {
 			this.blockSize = Math.floor(guiSettings.blockSize);
 			this.numColors = guiSettings.numColors * 2 + 1;
+			this.initialPopulation = Math.min(Math.max(guiSettings.initialPopulation, 0.0), 1.0);
+			this.apply(guiSettings);
+		}
+		apply(guiSettings) {
 			this.borders = { "W": null, "E": -1, "U": undefined }[guiSettings.borders];
-			this.initialPopulation = guiSettings.initialPopulation;
-			this.neighbors = guiSettings.neighbors;
+			this.neighbors = { "D": NeighborType.DIRECT, "DC": NeighborType.DIRECT|NeighborType.CORNER }[guiSettings.neighbors];
 			this.initialCellLife = Math.floor(guiSettings.initialCellLife);
+			this.running = guiSettings.running === true;
+			this.speed = Math.min(Math.max(guiSettings.speed, 0.001), 2.0);
 		}
 	}
 
 	var settings;
-	var running;
-	var speed;
 	var timeUntilUpdate;
 	var animFrameReqId;
 	var lastFrameTime;
@@ -111,12 +119,12 @@
 			}
 		},
 		handleCellClick : function(event) {
-			var baseX = Math.floor(event.pageX / settings.blockSize);
-			var baseY = Math.floor(event.pageY / settings.blockSize);
+			const baseX = Math.floor(event.pageX / settings.blockSize);
+			const baseY = Math.floor(event.pageY / settings.blockSize);
 			for(var offsetY = -(mouseHandler.brushSize-1)/2; offsetY <= (mouseHandler.brushSize-1)/2; offsetY++) {
 				for(var offsetX = -(mouseHandler.brushSize-1)/2; offsetX <= (mouseHandler.brushSize-1)/2; offsetX++) {
-					var x = baseX + offsetX;
-					var y = baseY + offsetY;
+					const x = baseX + offsetX;
+					const y = baseY + offsetY;
 					if(x < 0 || y < 0 || x >= width || y >= height || mouseHandler.mouseChangedCells.find(cell => cell.x == x && cell.y == y)) {
 						continue;
 					}
@@ -154,7 +162,7 @@
 	}
 
 	function getNeighbor(type, data, x, y) {
-		if(settings.neighbors.indexOf(type) == -1) {
+		if((settings.neighbors & type) !== type) {
 			return undefined;
 		}
 		if(x < 0) {
@@ -188,58 +196,59 @@
 		return data[y][x].colorId;
 	}
 
-	function calculateCell(current, top, bottom, left, right, topLeft, topRight, bottomLeft, bottomRight) {
-		function calculateIndividualScore(own, other) {
-			if(own == other) {
-				return 0;
-			}
-			if(own == -1) {
-				// empty loses against anything else
-				return -1;
-			}
-			if(other == -1) {
-				// anything non-empty wins against empty
-				return 1;
-			}
-			// generalized rock-paper-scissors rules:
-			// if own and other have the same parity, the larger one wins
-			// if they have different parity, the smaller one wins
-			// https://math.stackexchange.com/a/3229687
-			if(own % 2 == other % 2) {
-				return own > other ? 1 : -1;
-			}
-			return own < other ? 1 : -1;
+	function calculateIndividualScore(own, other) {
+		if(own === other) {
+			return 0;
 		}
+		if(own === -1 || own === undefined) {
+			// empty loses against anything else
+			return -1;
+		}
+		if(other === -1 || other === undefined) {
+			// anything non-empty wins against empty
+			return 1;
+		}
+		// generalized rock-paper-scissors rules:
+		// if own and other have the same parity, the larger one wins
+		// if they have different parity, the smaller one wins
+		// https://math.stackexchange.com/a/3229687
+		if(own % 2 == other % 2) {
+			return own > other ? 1 : -1;
+		}
+		return own < other ? 1 : -1;
+	}
 
+	function calculateCell(current, top, bottom, left, right, topLeft, topRight, bottomLeft, bottomRight) {
 		var totalScore = 0;
 		var allScores = new Map();
-		[top, bottom, left, right, topLeft, topRight, bottomLeft, bottomRight]
-			.filter(neighbor => neighbor != undefined)
-			.forEach(neighbor => {
-				var score = calculateIndividualScore(current.colorId, neighbor);
-				totalScore += score;
-				allScores.set(neighbor, (allScores.get(neighbor) || 0) + score);
-			});
+		for(let neighbor of [top, bottom, left, right, topLeft, topRight, bottomLeft, bottomRight]) {
+			if(neighbor === undefined) {
+				continue;
+			}
+			var score = calculateIndividualScore(current.colorId, neighbor);
+			totalScore += score;
+			allScores.set(neighbor, (allScores.get(neighbor) || 0) + score);
+		}
 		if(totalScore >= 0) {
 			return current;
 		}
-		var maxKey = undefined;
+		var maxNeighbor = undefined;
 		var numWithMax = 0;
-		allScores.forEach((value, key) => {
-			if(key != -1 && calculateIndividualScore(current.colorId, key) < 0) {
-				var score = calculateIndividualScore(key, maxKey);
-				if(maxKey == undefined || score > 0) {
-					maxKey = key;
+		allScores.forEach((neighborScore, neighbor) => {
+			if(neighborScore < 0) {
+				var score = calculateIndividualScore(neighbor, maxNeighbor);
+				if(score > 0) {
+					maxNeighbor = neighbor;
 					numWithMax = 1;
 				} else if(score == 0) {
 					numWithMax++;
 				}
 			}
 		});
-		if(maxKey != undefined && numWithMax == 1) {
-			current.life += allScores.get(maxKey); // the score is negative
+		if(maxNeighbor != undefined && numWithMax == 1) {
+			current.life += allScores.get(maxNeighbor); // the score is negative
 			if(current.life <= 0) {
-				return new Cell(maxKey);
+				return new Cell(maxNeighbor);
 			} else {
 				return current;
 			}
@@ -257,14 +266,14 @@
 			for(var x = 0; x < width; x++) {
 				data[y][x].copy(calculateCell(
 					oldData[y][x],
-					getNeighbor("D", oldData, x, y - 1),
-					getNeighbor("D", oldData, x, y + 1),
-					getNeighbor("D", oldData, x - 1, y),
-					getNeighbor("D", oldData, x + 1, y),
-					getNeighbor("C", oldData, x - 1, y - 1),
-					getNeighbor("C", oldData, x + 1, y - 1),
-					getNeighbor("C", oldData, x - 1, y + 1),
-					getNeighbor("C", oldData, x + 1, y + 1)));
+					getNeighbor(NeighborType.DIRECT, oldData, x, y - 1),
+					getNeighbor(NeighborType.DIRECT, oldData, x, y + 1),
+					getNeighbor(NeighborType.DIRECT, oldData, x - 1, y),
+					getNeighbor(NeighborType.DIRECT, oldData, x + 1, y),
+					getNeighbor(NeighborType.CORNER, oldData, x - 1, y - 1),
+					getNeighbor(NeighborType.CORNER, oldData, x + 1, y - 1),
+					getNeighbor(NeighborType.CORNER, oldData, x - 1, y + 1),
+					getNeighbor(NeighborType.CORNER, oldData, x + 1, y + 1)));
 				if(data[y][x].colorId != oldData[y][x].colorId) {
 					changedCells.addCell(x, y, data[y][x].colorId);
 				}
@@ -301,12 +310,12 @@
 	}
 
 	function updateAndDrawFrame(timestamp) {
-		if(running && !mouseHandler.mouseDown) {
+		if(settings.running && !mouseHandler.mouseDown) {
 			if(lastFrameTime === undefined) {
 				lastFrameTime = timestamp;
 			}
 			const baseFPS = 30.0;
-			timeUntilUpdate += Math.min(Math.max(timestamp - lastFrameTime, 0.0), 1000/baseFPS) / (1000/baseFPS) * speed;
+			timeUntilUpdate += Math.min(Math.max(timestamp - lastFrameTime, 0.0), 1000/baseFPS) / (1000/baseFPS) * settings.speed;
 			while(timeUntilUpdate >= 1.0) {
 				automaton.performStep();
 				timeUntilUpdate -= 1.0;
@@ -316,12 +325,10 @@
 		redrawChangedCells();
 		drawBuffer();
 		animFrameReqId = requestAnimFrame(updateAndDrawFrame);
-	};
+	}
 
 	automaton.start = function(guiSettings) {
 		settings = new Settings(guiSettings);
-		automaton.setSpeed(guiSettings.speed);
-		automaton.setRunning(guiSettings.running);
 		timeUntilUpdate = 0;
 
 		initCanvas();
@@ -333,15 +340,7 @@
 		animFrameReqId = requestAnimFrame(updateAndDrawFrame);
 	}
 
-	automaton.setSpeed = function(_speed) {
-		speed = Math.min(Math.max(_speed, 0.001), 2.0);
-	}
-
-	automaton.setRunning = function(_running) {
-		running = _running;
-	}
-
-	automaton.isRunning = function() {
-		return running;
+	automaton.applySettings = function(guiSettings) {
+		settings.apply(guiSettings);
 	}
 }(window.automaton = window.automaton || {}));
