@@ -1,17 +1,26 @@
 (function(automaton, undefined) {
 
 	// cross-browser support for requestAnimationFrame and cancelAnimationFrame
-	var requestAnimFrame = window.requestAnimationFrame
+	const requestAnimFrame = window.requestAnimationFrame
 		|| window.webkitRequestAnimationFrame
 		|| window.msRequestAnimationFrame
 		|| window.mozRequestAnimationFrame
 		|| function(callback) { return window.setTimeout(callback, 1000 / 60); };
-	var cancelAnimFrame = window.cancelAnimationFrame
+	const cancelAnimFrame = window.cancelAnimationFrame
 		|| window.webkitCancelRequestAnimationFrame || window.webkitCancelAnimationFrame
 		|| window.msCancelRequestAnimationFrame || window.msCancelAnimationFrame
 		|| window.mozCancelRequestAnimationFrame || window.mozCancelAnimationFrame
 		|| window.oCancelRequestAnimationFrame || window.oCancelAnimationFrame
 		|| function(id) { clearTimeout(id); };
+
+	const clamp = function(value, min, max) {
+		if(value < min) {
+			return min;
+		} else if(value > max) {
+			return max;
+		}
+		return value;
+	}
 
 	const NeighborType = {
 		DIRECT : 0,
@@ -21,8 +30,8 @@
 	class Settings {
 		constructor(guiSettings) {
 			this.blockSize = Math.floor(guiSettings.blockSize);
-			this.numColors = guiSettings.numColors * 2 + 1;
-			this.initialPopulation = Math.min(Math.max(guiSettings.initialPopulation, 0.0), 1.0);
+			this.numColors = Math.floor(guiSettings.numColors) * 2 + 1;
+			this.initialPopulation = clamp(guiSettings.initialPopulation, 0.0, 1.0);
 			this.apply(guiSettings);
 		}
 		apply(guiSettings) {
@@ -30,26 +39,14 @@
 			this.neighbors = { "D": NeighborType.DIRECT, "DC": NeighborType.DIRECT|NeighborType.CORNER }[guiSettings.neighbors];
 			this.initialCellLife = Math.floor(guiSettings.initialCellLife);
 			this.running = guiSettings.running === true;
-			this.speed = Math.min(Math.max(guiSettings.speed, 0.001), 2.0);
+			this.speed = clamp(guiSettings.speed, 0.001, 2.0);
 		}
-	}
-
-	var settings;
-	var timeUntilUpdate;
-	var animFrameReqId;
-	var lastFrameTime;
-
-	var changedCells = new Map();
-	changedCells.addCell = function(x, y, colorId) {
-		var positions = changedCells.get(colorId) || [];
-		positions.push({ x : x, y : y });
-		changedCells.set(colorId, positions);
 	}
 
 	class Cell {
 		set(colorId, life) {
 			this.colorId = colorId;
-			this.life = life == undefined ? settings.initialCellLife : life;
+			this.life = life || settings.initialCellLife;
 		}
 		copy(cell) {
 			this.colorId = cell.colorId;
@@ -60,22 +57,33 @@
 		}
 	}
 
-	var data;
-	var oldData;
-	var width;
-	var height;
+	let settings;
 
-	var canvas;
-	var context;
-	var bufferCanvas;
-	var bufferContext;
+	const changedCells = new Map();
+	changedCells.addCell = function(x, y, colorId) {
+		const positions = changedCells.get(colorId) || [];
+		positions.push({ x : x, y : y });
+		changedCells.set(colorId, positions);
+	}
+
+	let data;
+	let oldData;
+	let width;
+	let height;
+
+	let canvas;
+	let context;
+	let bufferCanvas;
+	let bufferContext;
+
+	let timeUntilUpdate;
+	let animFrameReqId;
+	let lastFrameTime;
 
 	function initCanvas() {
-		canvas = document.getElementById("canvas");
 		bufferCanvas = document.createElement("canvas");
 
 		[canvas, bufferCanvas].forEach(can => {
-			can.mozOpaque = true;
 			can.width = window.innerWidth;
 			can.height = window.innerHeight;
 		});
@@ -89,13 +97,12 @@
 		bufferContext = bufferCanvas.getContext("2d", { alpha: false });
 
 		[context, bufferContext].forEach(ctx => {
-			ctx.webkitImageSmoothingEnabled = false;
-			ctx.mozImageSmoothingEnabled = false;
+			ctx.msImageSmoothingEnabled = false;
 			ctx.imageSmoothingEnabled = false;
 		});
 	}
 
-	var mouseHandler = {
+	const mouseHandler = {
 		mouseDown : false,
 		mouseChangedCells : new Array(),
 		brushSize : 1,
@@ -110,19 +117,14 @@
 				mouseHandler.mouseDown = false;
 				mouseHandler.mouseChangedCells = new Array();
 			} else if(event.type == "wheel" && event.deltaY != 0) {
-				mouseHandler.brushSize += event.deltaY > 0 ? -2 : 2;
-				if(mouseHandler.brushSize < 1) {
-					mouseHandler.brushSize = 1;
-				} else if(mouseHandler.brushSize > 101) {
-					mouseHandler.brushSize = 101;
-				}
+				mouseHandler.brushSize = clamp(mouseHandler.brushSize + (event.deltaY > 0 ? -2 : 2), 1, 101);
 			}
 		},
 		handleCellClick : function(event) {
 			const baseX = Math.floor(event.pageX / settings.blockSize);
 			const baseY = Math.floor(event.pageY / settings.blockSize);
-			for(var offsetY = -(mouseHandler.brushSize-1)/2; offsetY <= (mouseHandler.brushSize-1)/2; offsetY++) {
-				for(var offsetX = -(mouseHandler.brushSize-1)/2; offsetX <= (mouseHandler.brushSize-1)/2; offsetX++) {
+			for(let offsetY = -(mouseHandler.brushSize-1)/2; offsetY <= (mouseHandler.brushSize-1)/2; offsetY++) {
+				for(let offsetX = -(mouseHandler.brushSize-1)/2; offsetX <= (mouseHandler.brushSize-1)/2; offsetX++) {
 					const x = baseX + offsetX;
 					const y = baseY + offsetY;
 					if(x < 0 || y < 0 || x >= width || y >= height || mouseHandler.mouseChangedCells.find(cell => cell.x == x && cell.y == y)) {
@@ -146,10 +148,10 @@
 		data = new Array(height);
 		oldData = new Array(height);
 		changedCells.clear();
-		for(var y = 0; y < height; y++) {
+		for(let y = 0; y < height; y++) {
 			data[y] = new Array(width);
 			oldData[y] = new Array(width);
-			for(var x = 0; x < width; x++) {
+			for(let x = 0; x < width; x++) {
 				if(Math.random() < settings.initialPopulation) {
 					data[y][x] = new Cell(Math.floor(Math.random() * settings.numColors));
 				} else {
@@ -159,6 +161,8 @@
 				changedCells.addCell(x, y, data[y][x].colorId);
 			}
 		}
+		timeUntilUpdate = 0;
+		lastFrameTime = undefined;
 	}
 
 	function getNeighbor(type, data, x, y) {
@@ -219,24 +223,24 @@
 	}
 
 	function calculateCell(current, top, bottom, left, right, topLeft, topRight, bottomLeft, bottomRight) {
-		var totalScore = 0;
-		var allScores = new Map();
+		let totalScore = 0;
+		const allScores = new Map();
 		for(let neighbor of [top, bottom, left, right, topLeft, topRight, bottomLeft, bottomRight]) {
 			if(neighbor === undefined) {
 				continue;
 			}
-			var score = calculateIndividualScore(current.colorId, neighbor);
+			const score = calculateIndividualScore(current.colorId, neighbor);
 			totalScore += score;
 			allScores.set(neighbor, (allScores.get(neighbor) || 0) + score);
 		}
 		if(totalScore >= 0) {
 			return current;
 		}
-		var maxNeighbor = undefined;
-		var numWithMax = 0;
+		let maxNeighbor = undefined;
+		let numWithMax = 0;
 		allScores.forEach((neighborScore, neighbor) => {
 			if(neighborScore < 0) {
-				var score = calculateIndividualScore(neighbor, maxNeighbor);
+				const score = calculateIndividualScore(neighbor, maxNeighbor);
 				if(score > 0) {
 					maxNeighbor = neighbor;
 					numWithMax = 1;
@@ -245,7 +249,7 @@
 				}
 			}
 		});
-		if(maxNeighbor != undefined && numWithMax == 1) {
+		if(maxNeighbor !== undefined && numWithMax == 1) {
 			current.life += allScores.get(maxNeighbor); // the score is negative
 			if(current.life <= 0) {
 				return new Cell(maxNeighbor);
@@ -257,13 +261,13 @@
 	}
 
 	automaton.performStep = function() {
-		for(var y = 0; y < height; y++) {
-			for(var x = 0; x < width; x++) {
+		for(let y = 0; y < height; y++) {
+			for(let x = 0; x < width; x++) {
 				oldData[y][x].copy(data[y][x]);
 			}
 		}
-		for(var y = 0; y < height; y++) {
-			for(var x = 0; x < width; x++) {
+		for(let y = 0; y < height; y++) {
+			for(let x = 0; x < width; x++) {
 				data[y][x].copy(calculateCell(
 					oldData[y][x],
 					getNeighbor(NeighborType.DIRECT, oldData, x, y - 1),
@@ -303,19 +307,13 @@
 		changedCells.clear();
 	}
 
-	function drawBuffer() {
-		context.fillStyle = "black";
-		context.fillRect(0, 0, canvas.width, canvas.height);
-		context.drawImage(bufferCanvas, 0, 0);
-	}
-
 	function updateAndDrawFrame(timestamp) {
 		if(settings.running && !mouseHandler.mouseDown) {
 			if(lastFrameTime === undefined) {
 				lastFrameTime = timestamp;
 			}
-			const baseFPS = 30.0;
-			timeUntilUpdate += Math.min(Math.max(timestamp - lastFrameTime, 0.0), 1000/baseFPS) / (1000/baseFPS) * settings.speed;
+			const millisPerFrame = 1000 / 30.0;
+			timeUntilUpdate += clamp(timestamp - lastFrameTime, 0.0, millisPerFrame) / millisPerFrame * settings.speed;
 			while(timeUntilUpdate >= 1.0) {
 				automaton.performStep();
 				timeUntilUpdate -= 1.0;
@@ -323,18 +321,20 @@
 			lastFrameTime = timestamp;
 		}
 		redrawChangedCells();
-		drawBuffer();
+		context.drawImage(bufferCanvas, 0, 0);
 		animFrameReqId = requestAnimFrame(updateAndDrawFrame);
+	}
+
+	automaton.setCanvas = function(canvasElement) {
+		canvas = canvasElement;
 	}
 
 	automaton.start = function(guiSettings) {
 		settings = new Settings(guiSettings);
-		timeUntilUpdate = 0;
-
 		initCanvas();
 		initData();
 
-		if(animFrameReqId != undefined) {
+		if(animFrameReqId !== undefined) {
 			cancelAnimFrame(animFrameReqId);
 		}
 		animFrameReqId = requestAnimFrame(updateAndDrawFrame);
