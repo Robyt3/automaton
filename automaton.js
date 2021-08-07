@@ -23,8 +23,8 @@
 	}
 
 	const NeighborType = {
-		DIRECT : 0,
-		CORNER : 1
+		DIRECT : 1,
+		CORNER : 2
 	}
 
 	class Settings {
