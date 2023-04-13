@@ -9,8 +9,8 @@
 		},
 		blockSize : 10,
 		initialPopulation : 0.01,
-		initialCellLife : 1,
-		numColors : 1,
+		initialCellLife : 5,
+		numColors : 2,
 		borders : "W",
 		neighbors : "D",
 		viewSource : function() {
