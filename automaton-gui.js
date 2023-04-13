@@ -14,7 +14,7 @@
 		borders : "W",
 		neighbors : "D",
 		viewSource : function() {
-			window.location.href = "https://github.com/Robyt3/automaton";
+			window.open("https://github.com/Robyt3/automaton", '_blank').focus();
 		},
 		apply : function() {
 			automaton.applySettings(settings);
